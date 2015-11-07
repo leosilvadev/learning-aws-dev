@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+import boto
+import os.path
+import sys
+import os
+import glob
+from boto.s3.key import Key
+
+action = sys.argv[1]
+bucket_name = sys.argv[2]
+
+s3 = boto.connect_s3()
+
+#create a bucket if it does not exist
+if action == "create-bucket":
+    if not s3.lookup(bucket_name):
+        print "Creating bucket"
+        s3.create_bucket(bucket_name)
+
+
+if action == "create-object":
+    bucket = s3.get_bucket(bucket_name)
+    key = Key(bucket)
+    key.key = sys.argv[3]
+    key.set_contents_from_string(sys.argv[4])
+
+
+if action == "upload-text-files":
+    bucket = s3.get_bucket(bucket_name)
+    print "Uploading all your txt files to " + bucket_name
+    for filename in glob.glob("*.txt"):
+        key = bucket.new_key("files/" + filename)
+        key.set_contents_from_filename(filename)
+        print "Uploaded file: " + filename
+        
+
+if action == "delete-bucket":
+    bucket = s3.get_bucket(bucket_name)
+    for key in bucket.list():
+        key.delete()
+
+    s3.delete_bucket(bucket_name)
+
+
+if action == "create-website":
+    bucket = s3.create_bucket(bucket_name)
+    index_file = bucket.new_key("index.html")
+    index_file.content_type = "text/html"
+    index_file.set_contents_from_string("<html><head></head><body><h1>Comming soon...</h1></body></html>", policy="public-read")
+
+    error_file = bucket.new_key("error.html")
+    error_file.content_type = "text/html"
+    error_file.set_contents_from_string("<html><head></head><body><h1>Error, content not found...</h1></body></html>", policy="public-read")
+    
+    bucket.configure_website("index.html", "error.html")
+    print "Website URL: " + bucket.get_website_endpoint()
+
